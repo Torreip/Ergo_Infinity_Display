@@ -18,14 +18,19 @@ BLUE_MASK = 0x0000FF
 # first [] is x direct, second [] is y
 lcd = [[0 for x in range(32)] for x in range(128)]
 
-class ErgodoxLCDBuffer(object):
-    def __init__(self):
-        self.data = [[0 for x in range(32)] for x in range(128)]
 
-    def format_char(self, c, x, y):  # Enter a char at location x,y using small 5x8 font
+class ErgodoxLCDBuffer(object):
+
+    def __init__(self):
+        self.data = [[0 for _ in range(32)] for _ in range(128)]
+
+    def format_char(self, c, x, y):
+        ''' Enter a char at location x,y using small 5x8 font '''
         for w in range(5):
             if (0 <= x + w <= 132) & (0 <= y + 8 <= 32):  # Boundrary checking
-                self.data[x + w][y:y + 8] = list(format(QuickType_5x8[(ord(c) - 32) * 5 + w], '08b'))
+                self.data[x + w][y:y + 8] = list(
+                    format(QuickType_5x8[(ord(c) - 32) * 5 + w], '08b')
+                )
 
     def format_string(self, string, x, y):
         for i, c in enumerate(string):
@@ -36,13 +41,16 @@ class ErgodoxLCDBuffer(object):
             for y in range(len(self.data[0])):
                 self.data[x][y] = 0
 
+
 class ErgodoxInterface(object):
+
     def __init__(self, serial):
         self.serial = serial
         self.lcd = ErgodoxLCDBuffer()
 
 # Fairly painless way to do fonts
-    def clear(self):  # Clean lcd array and clean screen
+    def clear(self):
+        ''' Clean lcd array and clean screen '''
         self.lcd.clear()
         self.serial.write("lcdInit \r".encode('ascii'))
         sleep(0.1)
@@ -70,10 +78,12 @@ class ErgodoxInterface(object):
             green *= green
             blue *= blue
 
-        self.lcd_color(red*red, green*green, blue*blue)
+        self.lcd_color(red * red, green * green, blue * blue)
 
-    def send(self):  # Pass an array, for updating the whole screen, slow!
-        for segs in range(8):  # have to break into 8 segments of 16 to avoid lcd overload
+    def send(self):
+        ''' Pass an array, for updating the whole screen, slow! '''
+        # have to break into 8 segments of 16 to avoid lcd overload
+        for segs in range(8):
             for y in range(int(len(self.lcd.data[0]) / 8)):
                 command = "lcdDisp " + hex(y) + " " + hex(segs * 16) + " "
                 for x in range(int(len(self.lcd.data) / 8)):
@@ -86,27 +96,34 @@ class ErgodoxInterface(object):
                 # print command
                 sleep(0.03)  # Fastest I can go before artefacts start to appear
 
-    def invert(self): #invert the display
+    def invert(self):
+        ''' invert the display '''
         self.serial.write("lcdCmd 0xA7\r".encode('ascii'))
 
-    def revert(self): #undo the invert
+    def revert(self):
+        ''' undo the invert '''
         self.serial.write("lcdCmd 0xA6\r".encode('ascii'))
 
-    def update_pixel(self, x, y, val):  # Update a single pixel at location x,y, with either 1 or 0
+    def update_pixel(self, x, y, val):
+        ''' Update a single pixel at location x,y, with either 1 or 0 '''
         if (0 <= x <= 132) & (0 <= y <= 32):
-            self.lcd.data[x][y] = val;
+            self.lcd.data[x][y] = val
             ypose = int(floor(y / 8))
             val = ""
             for w in range(7, -1, -1):
                 val += str(self.lcd.data[x][ypose * 8 + w])
-            command = "lcdDisp " + hex(ypose) + " " + hex(x) + " " + hex(int(val, 2)) + " \r"
+            command = "lcdDisp " + hex(ypose) + " " + \
+                hex(x) + " " + hex(int(val, 2)) + " \r"
             self.serial.write(command.encode('ascii'))
             # print command
             sleep(0.03)
 
-# NOTE: This will update to the upper limit of the Y page stored, as this is actually faster than limiting it to a smaller section
-    def send_portion(self, xDims, yDims):  # Update part of the screen, faster for small updates (~30 pixels total)
+    def send_portion(self, xDims, yDims):
+        ''' Update part of the screen, faster for small updates (~30 pixels
+        total)
+        NOTE: This will update to the upper limit of the Y page stored, as this
+        is actually faster than limiting it to a smaller section '''
         for y in range(yDims[0], yDims[1], 2):
             for x in range(xDims[0], xDims[1]):
-                if (0 <= x <= 132) & (0 <= y <= 32): self.update_pixel(x, y, self.lcd.data[x][y])
-
+                if (0 <= x <= 132) & (0 <= y <= 32):
+                    self.update_pixel(x, y, self.lcd.data[x][y])
